@@ -12,7 +12,7 @@ export default function Teacher(){
    return `<tr style="background:${ok?'#ecfdf5':'#fef2f2'}"><td>${n}</td><td>${a==null?'—':'ABCD'[a]+') '+esc(q.options[a])}</td><td>${'ABCD'[q.correctAnswer]+') '+esc(q.options[q.correctAnswer])}</td><td>${esc(q.explanation||'')}</td></tr>`}).join('');
   const el=document.createElement('div');
   el.innerHTML=`<div style="font-family:sans-serif;padding:16px;font-size:11px"><h1 style="font-size:20px;margin:0">${esc(d.exam.title)}</h1>
-   <p>Official Exam Report · ${new Date(s.submittedAt).toLocaleDateString()}</p><p><b>Student:</b> ${esc(s.email)}<br><b>Submitted:</b> ${new Date(s.submittedAt).toLocaleString()}</p>
+   <p>Official Exam Report · ${new Date(s.submittedAt).toLocaleDateString()}</p><p><b>Student:</b> ${esc(s.name||'')}<br><b>Email:</b> ${esc(s.email)}<br><b>Submitted:</b> ${new Date(s.submittedAt).toLocaleString()}</p>
    <p><b>Total:</b> ${s.total}/100 · <b>Grammar:</b> ${s.grammar}/70 · <b>Reading:</b> ${s.reading}/30</p>
    <table border="1" cellpadding="4" style="border-collapse:collapse;width:100%"><tr><th>#</th><th>Student answer</th><th>Correct answer</th><th>Notes</th></tr>${rows}</table></div>`;
   h2p().from(el).set({margin:10,filename:`${s.email}-report.pdf`,pagebreak:{mode:['css','avoid-all']}}).save()};
@@ -26,8 +26,8 @@ export default function Teacher(){
   <span className="text-sm">Status: <b>{S.status}</b>{S.startTime&&` · started ${new Date(S.startTime).toLocaleTimeString()} · ${S.durationMinutes} min`}</span>
   <button onClick={()=>navigator.clipboard.writeText(d.submissions.map(s=>s.email).join(', '))} className="ml-auto flex items-center gap-2 rounded border px-3 py-2"><Copy size={16}/>Copy All Student Emails</button></div>
   <table className="w-full rounded border bg-white text-left text-sm"><thead className="border-b bg-slate-100"><tr>
-   {['Student Email','Submission Time','Auto Score (/100)','Grammar Score (/70)','Reading Score (/30)','Actions'].map(h=><th key={h} className="p-2">{h}</th>)}</tr></thead>
-   <tbody>{d.submissions.map(s=>(<tr key={s.email} className="border-b"><td className="p-2">{s.email}</td><td className="p-2">{new Date(s.submittedAt).toLocaleString()}</td>
+   {['Student Name','Student Email','Submission Time','Auto Score (/100)','Grammar Score (/70)','Reading Score (/30)','Actions'].map(h=><th key={h} className="p-2">{h}</th>)}</tr></thead>
+   <tbody>{d.submissions.map(s=>(<tr key={s.email} className="border-b"><td className="p-2">{s.name||'—'}</td><td className="p-2">{s.email}</td><td className="p-2">{new Date(s.submittedAt).toLocaleString()}</td>
     <td className="p-2">{s.total}</td><td className="p-2">{s.grammar}</td><td className="p-2">{s.reading}</td>
     <td className="p-2"><button onClick={()=>pdf(s)} className="flex items-center gap-1 rounded border px-2 py-1"><Download size={14}/>Download Student PDF</button></td></tr>))}
-    {!d.submissions.length&&<tr><td colSpan="6" className="p-4 text-slate-500">No submissions yet.</td></tr>}</tbody></table></div>)}
+    {!d.submissions.length&&<tr><td colSpan="7" className="p-4 text-slate-500">No submissions yet.</td></tr>}</tbody></table></div>)}

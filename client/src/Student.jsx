@@ -1,8 +1,8 @@
-import {useEffect,useRef,useState} from 'react'; import {Clock} from 'lucide-react';
+import {useEffect,useRef,useState} from 'react'; import {Clock,Save,Timer,Mail} from 'lucide-react';
 const K=e=>`student_exam_state_${e}`;
 const fmt=ms=>{const s=Math.ceil(ms/1000);return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`};
 export default function Home(){
- const [email,setEmail]=useState(''),[joined,setJoined]=useState(false),[data,setData]=useState(null),[offset,setOffset]=useState(0),
+ const [name,setName]=useState(''),[email,setEmail]=useState(''),[joined,setJoined]=useState(false),[data,setData]=useState(null),[offset,setOffset]=useState(0),
   [answers,setAnswers]=useState({}),[now,setNow]=useState(Date.now()),[done,setDone]=useState(false),[err,setErr]=useState('');
  const sent=useRef(false);
  const poll=async()=>{try{const r=await(await fetch('/api/exam',{cache:'no-store'})).json();setOffset(r.serverNow-Date.now());setData(r)}catch{}};
@@ -15,22 +15,38 @@ export default function Home(){
  const save=(a,submitted=false)=>{try{localStorage.setItem(K(email),JSON.stringify({startTime:st,answers:a,submitted}))}catch{}};
  const pick=(id,i)=>{if(locked||done)return;const a={...answers,[id]:i};setAnswers(a);save(a)};
  const submit=async()=>{if(sent.current)return;sent.current=true;
-  try{const r=await fetch('/api/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,answers})});
+  try{const r=await fetch('/api/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,email,answers})});
    if(r.ok){setErr('');save(answers,true);setDone(true)}
    else{setErr('Your submission arrived after the deadline and was not accepted. Please contact your teacher.');setDone(true)}}
   catch{sent.current=false;setErr('No connection. Your answers are saved and will be sent automatically.')}};
  useEffect(()=>{if(joined&&data?.exam&&locked&&!done)submit()},[locked,done,Math.floor(now/5000)]);
 
- if(!joined) return(<div className="mt-16 rounded-lg border bg-white p-8"><h1 className="mb-4 text-2xl font-semibold">Enter Email to Join Exam</h1>
-  <form onSubmit={e=>{e.preventDefault();setEmail(email.trim().toLowerCase());setJoined(true)}} className="flex gap-2">
-  <input required type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com" className="flex-1 rounded border px-3 py-2"/>
-  <button className="rounded bg-blue-600 px-4 py-2 text-white">Join</button></form></div>);
- if(done) return(<div className="mt-16 rounded-lg border bg-white p-8 text-lg">{err||'Your exam responses have been submitted successfully. Your teacher will send your evaluated PDF report via email.'}</div>);
- if(!data?.exam) return <div className="mt-16 rounded-lg border bg-white p-8">Waiting for your teacher to start the exam. This page updates automatically.</div>;
+ if(!joined) return(
+ <section className="grid items-center gap-12 py-6 md:grid-cols-[1.1fr_0.9fr] md:py-14">
+  <div>
+   <h1 className="font-display text-5xl font-extrabold leading-[1.05] tracking-tight md:text-6xl">B1 Mid-Term<br/>English Assessment</h1>
+   <p className="mt-5 max-w-md text-lg text-slate-600">36 questions across grammar and reading. You have 60 minutes once your teacher starts the exam.</p>
+   <ul className="mt-8 space-y-3 text-slate-700">
+    {[[Save,'Answers save after every click, so a reload never loses your work.'],[Timer,'One shared countdown for the whole class, set by your teacher.'],[Mail,'Your teacher emails your results after the exam.']].map(([I,t])=>(
+     <li key={t} className="flex items-start gap-3"><I size={20} className="mt-0.5 shrink-0 text-ultra"/>{t}</li>))}
+   </ul></div>
+  <form onSubmit={e=>{e.preventDefault();const n=name.trim().replace(/\s+/g,' ');if(n.length<2)return;setName(n);setEmail(email.trim().toLowerCase());setJoined(true)}} className="rounded-xl border-2 border-ink bg-white p-6 shadow-[6px_6px_0_0_#2b3fd6]">
+   <div className="mb-6 flex items-center justify-between border-b-2 border-dashed border-ink/20 pb-4">
+    <span className="font-display text-lg font-bold">Student answer sheet</span>
+    <span className="flex gap-1.5">{'ABCD'.split('').map((l,i)=>(<span key={l} className={`grid h-7 w-7 place-items-center rounded-full border-2 text-xs font-semibold ${i===2?'border-ultra bg-ultra text-white':'border-ink/70'}`}>{l}</span>))}</span></div>
+   <label className="mb-2 block text-sm font-semibold" htmlFor="name">Your full name</label>
+   <input id="name" required autoComplete="name" value={name} onChange={e=>setName(e.target.value)} placeholder="First and last name" className="w-full rounded-md border-2 border-ink/30 px-3 py-2.5 outline-none focus:border-ultra focus:ring-4 focus:ring-ultra/15"/>
+   <label className="mb-2 mt-4 block text-sm font-semibold" htmlFor="email">Your email address</label>
+   <input id="email" required type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com" className="w-full rounded-md border-2 border-ink/30 px-3 py-2.5 outline-none focus:border-ultra focus:ring-4 focus:ring-ultra/15"/>
+   <p className="mt-2 text-sm text-slate-500">Use the same email if you need to come back to the exam.</p>
+   <button className="mt-6 w-full rounded-md bg-ultra py-3 font-semibold text-white transition hover:bg-ink focus:outline-none focus:ring-4 focus:ring-ultra/30">Join exam</button>
+  </form></section>);
+ if(done) return(<div className="mx-auto mt-16 max-w-xl rounded-lg border-2 border-ink bg-white p-8 text-lg">{err||'Your exam responses have been submitted successfully. Your teacher will send your evaluated PDF report via email.'}</div>);
+ if(!data?.exam) return <div className="mx-auto mt-16 max-w-xl rounded-lg border-2 border-ink bg-white p-8">Waiting for your teacher to start the exam. This page updates automatically.</div>;
  let n=0;
- return(<div>
+ return(<div className="mx-auto max-w-3xl">
   <div className="sticky top-0 z-10 mb-4 flex items-center justify-between rounded border bg-white p-3 shadow-sm">
-   <span className="text-sm">{email}</span><span className={`flex items-center gap-1 font-mono text-lg ${left<300000?'text-red-600':''}`}><Clock size={18}/>{fmt(left)}</span></div>
+   <span className="text-sm">{name} <span className="text-slate-500">{email}</span></span><span className={`flex items-center gap-1 font-mono text-lg ${left<300000?'text-red-600':''}`}><Clock size={18}/>{fmt(left)}</span></div>
   {err&&<p className="mb-3 text-sm text-amber-700">{err}</p>}
   {data.exam.sections.map(s=>(<section key={s.id} className="mb-8"><h2 className="mb-3 text-xl font-semibold">{s.title}</h2>
    {s.passageText&&<div className="mb-4 rounded border bg-white p-4"><h3 className="mb-2 font-medium">{s.passageTitle}</h3><p className="whitespace-pre-line leading-relaxed">{s.passageText}</p></div>}

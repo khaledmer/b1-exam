@@ -1,1 +1,15 @@
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
 @import "tailwindcss";
+@theme {
+  --font-display: 'Bricolage Grotesque', system-ui, sans-serif;
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --color-ink: #101b3b;
+  --color-ultra: #2b3fd6;
+  --color-paper: #f4f6fb;
+}
+body {
+  color: var(--color-ink);
+  background-color: var(--color-paper);
+  background-image: linear-gradient(#e2e7f3 1px, transparent 1px), linear-gradient(90deg, #e2e7f3 1px, transparent 1px);
+  background-size: 28px 28px;
+}

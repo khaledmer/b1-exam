@@ -9,6 +9,7 @@ A timed, multiple-choice exam platform for B1 ESL students. A teacher starts the
 ## Features
 
 **Students**
+
 - Join with an email address (no password).
 - Every answer is saved to `localStorage` (`student_exam_state_<email>`). After a reload, a closed browser or a dropped connection, entering the same email restores the answers and the remaining time.
 - A sticky countdown timer is based on the server clock, so every student sees the same time regardless of their device clock.
@@ -16,12 +17,14 @@ A timed, multiple-choice exam platform for B1 ESL students. A teacher starts the
 - Students never see scores, checkmarks or correct answers. They only see a confirmation message.
 
 **Teacher dashboard (`/teacher`, protected by a key)**
+
 - Set the duration (default 60 minutes) and press **START EXAM FOR ALL**.
 - Live submissions table: email, submission time, total /100, grammar /70, reading /30.
 - **Copy All Student Emails** copies a comma-separated list.
 - **Download Student PDF** creates a report with the exam title and date, the student email and submission time, the score breakdown, and a table of student answer vs correct answer.
 
 **Server rules**
+
 - Correct answers never leave the server, except on the key-protected teacher endpoint.
 - Submissions arriving after `startTime + duration + 30 seconds` are rejected.
 - Each email can submit once. Repeated submissions are ignored.
@@ -70,14 +73,15 @@ npm run dev
 
 This starts two processes:
 
-| Process | URL |
-|---|---|
+| Process                 | URL                                   |
+| ----------------------- | ------------------------------------- |
 | React dev server (Vite) | http://localhost:5173 (open this one) |
-| Express API | http://localhost:3001 |
+| Express API             | http://localhost:3001                 |
 
 Vite proxies `/api` to Express, so you only use port 5173. The page reloads when you edit client code, and the server restarts when you edit server code.
 
 **Try it:**
+
 1. Open http://localhost:5173/teacher and enter the key from `.env` (default `change-me`).
 2. Press **START EXAM FOR ALL**.
 3. In another browser window (or a private window), open http://localhost:5173, enter an email and take the exam.
@@ -115,10 +119,10 @@ To let students on the same network join from their own devices:
 
 Set these in the `.env` file locally, or in the Render dashboard when deployed.
 
-| Variable | Default | Purpose |
-|---|---|---|
+| Variable      | Default     | Purpose                                                                |
+| ------------- | ----------- | ---------------------------------------------------------------------- |
 | `TEACHER_KEY` | `change-me` | Password for the teacher dashboard. **Change it before any real use.** |
-| `PORT` | `3001` | Port Express listens on. Render sets this itself. |
+| `PORT`        | `3001`      | Port Express listens on. Render sets this itself.                      |
 
 Example `.env`:
 
@@ -161,15 +165,16 @@ git push -u origin main
 2. Connect your GitHub account and select the repository.
 3. Fill in the settings:
 
-| Setting | Value |
-|---|---|
-| Language / Runtime | `Node` |
-| Branch | `main` |
-| Build Command | `npm install --include=dev && npm run build` |
-| Start Command | `node server/index.js` |
-| Instance Type | see "Keeping the data" below |
+| Setting            | Value                                        |
+| ------------------ | -------------------------------------------- |
+| Language / Runtime | `Node`                                       |
+| Branch             | `main`                                       |
+| Build Command      | `npm install --include=dev && npm run build` |
+| Start Command      | `node server/index.js`                       |
+| Instance Type      | see "Keeping the data" below                 |
 
 Why these commands:
+
 - `--include=dev` makes sure Vite and Tailwind (dev dependencies) are installed for the build step.
 - The start command calls `node` directly instead of `npm start`, because there is no `.env` file on Render. Settings come from environment variables instead.
 
@@ -177,10 +182,10 @@ Why these commands:
 
 In the **Environment** section, add:
 
-| Key | Value |
-|---|---|
-| `TEACHER_KEY` | your secret teacher password |
-| `NODE_VERSION` | `22` |
+| Key            | Value                        |
+| -------------- | ---------------------------- |
+| `TEACHER_KEY`  | your secret teacher password |
+| `NODE_VERSION` | `22`                         |
 
 Do not set `PORT`. Render provides it automatically.
 
@@ -192,6 +197,7 @@ Choose one of these:
 
 **Option A: paid instance with a persistent disk (recommended for real exams).**
 Persistent disks are available on paid Render services only.
+
 1. Set the instance type to a paid plan (for example Starter).
 2. Open the service, go to **Disks → Add Disk**.
 3. Name it `exam-data`, size `1 GB`, and set the **Mount Path** to:
@@ -204,6 +210,7 @@ Render redeploys after you save. The database file now survives restarts and red
 
 **Option B: free instance (fine for testing only).**
 Use it for trials. For a real exam on the free tier:
+
 - Open the teacher dashboard a few minutes before and keep it open. It polls the server every 5 seconds, which keeps the service awake.
 - Never redeploy or restart during the exam.
 - Download all PDFs and copy the emails right after the exam, because the data can disappear afterwards.
@@ -243,7 +250,12 @@ Questions live in `data/exam.json`. Each question looks like this:
 {
   "id": "q1",
   "text": "A coach isn't __________ a train for long journeys.",
-  "options": ["as comfortable than", "so comfortable like", "as comfortable as", "more comfortable as"],
+  "options": [
+    "as comfortable than",
+    "so comfortable like",
+    "as comfortable as",
+    "more comfortable as"
+  ],
   "correctAnswer": 2,
   "points": 2,
   "explanation": "Optional. Shown in the Notes column of the teacher PDF."
@@ -259,27 +271,27 @@ Questions live in `data/exam.json`. Each question looks like this:
 
 ## API reference
 
-| Method | Endpoint | Auth | Purpose |
-|---|---|---|---|
-| GET | `/api/exam` | none | Session state, server time, and the questions (without answers) once the exam is active |
-| POST | `/api/submit` | none | Body `{ "email": "...", "answers": { "q1": 2, ... } }`. Graded on the server. |
-| GET | `/api/teacher` | `x-teacher-key` header | Session, full question bank with answers, all submissions |
-| POST | `/api/teacher` | `x-teacher-key` header | Body `{ "durationMinutes": 60 }`. Starts the exam for all. |
+| Method | Endpoint       | Auth                   | Purpose                                                                                 |
+| ------ | -------------- | ---------------------- | --------------------------------------------------------------------------------------- |
+| GET    | `/api/exam`    | none                   | Session state, server time, and the questions (without answers) once the exam is active |
+| POST   | `/api/submit`  | none                   | Body `{ "email": "...", "answers": { "q1": 2, ... } }`. Graded on the server.           |
+| GET    | `/api/teacher` | `x-teacher-key` header | Session, full question bank with answers, all submissions                               |
+| POST   | `/api/teacher` | `x-teacher-key` header | Body `{ "durationMinutes": 60 }`. Starts the exam for all.                              |
 
 ---
 
 ## Troubleshooting
 
-| Problem | Fix |
-|---|---|
-| `node: bad option: --env-file` | Your Node.js is older than 20.6. Install Node 22 LTS. |
-| `vite: not found` during the Render build | Make sure the build command is `npm install --include=dev && npm run build`. |
-| Page loads locally but `/teacher` shows a blank page after refresh in production | Run `npm run build` first. Express serves the React app only when the `dist/` folder exists. |
-| "Wrong teacher key" | The key must match `TEACHER_KEY` in `.env` (local) or in the Render environment settings. Restart the server after changing it. |
-| Students cannot reach the LAN address | Check that everyone is on the same network, use the production build (port 3001), and allow Node.js through the firewall. |
-| `EADDRINUSE: address already in use` | Another program is using the port. Change `PORT` in `.env`. |
-| All submissions disappeared on Render | The instance restarted without a persistent disk. See "Keeping the data". |
-| A student's answers are gone after the teacher restarted the exam | Saved answers belong to one exam session. Restarting creates a new session, so old answers are not restored. |
+| Problem                                                                          | Fix                                                                                                                             |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `node: bad option: --env-file`                                                   | Your Node.js is older than 20.6. Install Node 22 LTS.                                                                           |
+| `vite: not found` during the Render build                                        | Make sure the build command is `npm install --include=dev && npm run build`.                                                    |
+| Page loads locally but `/teacher` shows a blank page after refresh in production | Run `npm run build` first. Express serves the React app only when the `dist/` folder exists.                                    |
+| "Wrong teacher key"                                                              | The key must match `TEACHER_KEY` in `.env` (local) or in the Render environment settings. Restart the server after changing it. |
+| Students cannot reach the LAN address                                            | Check that everyone is on the same network, use the production build (port 3001), and allow Node.js through the firewall.       |
+| `EADDRINUSE: address already in use`                                             | Another program is using the port. Change `PORT` in `.env`.                                                                     |
+| All submissions disappeared on Render                                            | The instance restarted without a persistent disk. See "Keeping the data".                                                       |
+| A student's answers are gone after the teacher restarted the exam                | Saved answers belong to one exam session. Restarting creates a new session, so old answers are not restored.                    |
 
 ---
 
