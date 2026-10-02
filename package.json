@@ -1,0 +1,4 @@
+{"name":"b1-exam","private":true,"type":"module",
+"scripts":{"dev":"concurrently \"node --watch --env-file=.env server/index.js\" \"vite\"","build":"vite build","start":"node --env-file=.env server/index.js"},
+"dependencies":{"express":"^4.21.0","react":"^19","react-dom":"^19","react-router-dom":"^6","lucide-react":"latest","html2pdf.js":"^0.10.2"},
+"devDependencies":{"vite":"^6","@vitejs/plugin-react":"^4","tailwindcss":"^4","@tailwindcss/vite":"^4","concurrently":"^9"}}
