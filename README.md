@@ -2,7 +2,7 @@
 
 A timed, multiple-choice exam platform for B1 ESL students. A teacher starts the exam for everyone at once; students answer in their browser, and answers are saved after every click. Scores are calculated on the server, and the teacher downloads a PDF report per student.
 
-**Stack:** React (Vite) + Tailwind CSS + Lucide icons + `html2pdf.js` on the frontend, Node.js + Express on the backend. Data is stored in a **PostgreSQL** database.
+**Stack:** React (Vite) + Tailwind CSS + Lucide icons + `jsPDF` on the frontend, Node.js + Express on the backend. Data is stored in a **PostgreSQL** database.
 
 ---
 
@@ -19,6 +19,7 @@ A timed, multiple-choice exam platform for B1 ESL students. A teacher starts the
 **Teacher dashboard (`/teacher`, protected by a key)**
 - Set the duration (default 60 minutes) and press **START EXAM FOR ALL**.
 - Press **STOP EXAM FOR ALL** to end the exam immediately. Every student is locked and their answers are submitted.
+- Each submission row has a **Delete** button that permanently removes that student's submission, for example a test entry or a duplicate.
 - **Preview exam** shows all questions on the dashboard with the correct answers highlighted. Students never see this view.
 - **Reset test data** deletes all submissions, saved answers and past exams, and returns the platform to its starting state. You must type `RESET` to confirm. Use it after testing, and never during a real exam.
 - Live submissions table: email, submission time, total /100, grammar /70, reading /30.
@@ -293,6 +294,7 @@ Questions live in `data/exam.json`. Each question looks like this:
 | GET | `/api/teacher` | `x-teacher-key` header | Session, full question bank with answers, all submissions |
 | POST | `/api/teacher` | `x-teacher-key` header | Body `{ "durationMinutes": 60 }`. Starts the exam for all. |
 | POST | `/api/teacher/stop` | `x-teacher-key` header | Ends the exam immediately for all. |
+| DELETE | `/api/teacher/submissions/:email` | `x-teacher-key` header | Deletes one student's submission (and saved draft) from the current exam. |
 | POST | `/api/teacher/reset` | `x-teacher-key` header | Deletes all submissions, drafts and sessions. |
 
 ---

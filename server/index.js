@@ -53,6 +53,14 @@ app.post('/api/teacher/stop',teacherOnly,h(async(req,res)=>{
  await pool.query("UPDATE exam_session SET status='STOPPED',stopped_at=$1 WHERE id=1 AND status='ACTIVE' AND start_time+duration_minutes*60000>$1",[Date.now()]);
  res.json(await getSession());
 }));
+// Removes one student's submission (and any saved draft, so it is not recreated automatically at the deadline).
+app.delete('/api/teacher/submissions/:email',teacherOnly,h(async(req,res)=>{
+ const s=await getSession(),e=em(req.params.email);
+ if(!s.startTime) return res.json({ok:true,deleted:0});
+ await pool.query('DELETE FROM drafts WHERE session_start=$1 AND email=$2',[s.startTime,e]);
+ const r=await pool.query('DELETE FROM submissions WHERE session_start=$1 AND email=$2',[s.startTime,e]);
+ res.json({ok:true,deleted:r.rowCount});
+}));
 app.post('/api/teacher/reset',teacherOnly,h(async(req,res)=>{
  await pool.query("DELETE FROM drafts; DELETE FROM submissions; UPDATE exam_session SET status='IDLE',start_time=NULL,stopped_at=NULL,finalized=false WHERE id=1");
  res.json(await getSession());

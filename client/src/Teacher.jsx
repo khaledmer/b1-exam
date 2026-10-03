@@ -1,5 +1,4 @@
-import {useEffect,useState} from 'react'; import {Copy,Download,Play,Square,Eye,RotateCcw} from 'lucide-react';
-const esc=t=>String(t).replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
+import {useEffect,useState} from 'react'; import {Copy,Download,Play,Square,Eye,RotateCcw,Trash2} from 'lucide-react';
 export default function Teacher(){
  const [k,setK]=useState(()=>{try{return sessionStorage.getItem('tk')||''}catch{return ''}}),[d,setD]=useState(null),[mins,setMins]=useState(60),[err,setErr]=useState(''),[show,setShow]=useState(false),[copied,setCopied]=useState(false);
  const H={'x-teacher-key':k,'Content-Type':'application/json'};
@@ -15,15 +14,10 @@ export default function Teacher(){
  const copy=async()=>{const t=d.submissions.map(s=>s.email).join(', ');
   try{await navigator.clipboard.writeText(t)}catch{const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();document.execCommand('copy');a.remove()}
   setCopied(true);setTimeout(()=>setCopied(false),1500)};
- const pdf=async s=>{const h2p=(await import('html2pdf.js')).default;let n=0;
-  const rows=d.exam.sections.flatMap(x=>x.questions).map(q=>{n++;const a=s.answers[q.id],ok=a===q.correctAnswer;
-   return `<tr style="background:${ok?'#ecfdf5':'#fef2f2'}"><td>${n}</td><td>${a==null?'—':'ABCD'[a]+') '+esc(q.options[a])}</td><td>${'ABCD'[q.correctAnswer]+') '+esc(q.options[q.correctAnswer])}</td><td>${esc(q.explanation||'')}</td></tr>`}).join('');
-  const el=document.createElement('div');
-  el.innerHTML=`<div style="font-family:sans-serif;padding:16px;font-size:11px"><h1 style="font-size:20px;margin:0">${esc(d.exam.title)}</h1>
-   <p>Official Exam Report · ${new Date(s.submittedAt).toLocaleDateString()}</p><p><b>Student:</b> ${esc(s.name||'')}<br><b>Email:</b> ${esc(s.email)}<br><b>Submitted:</b> ${new Date(s.submittedAt).toLocaleString()}</p>
-   <p><b>Total:</b> ${s.total}/100 · <b>Grammar:</b> ${s.grammar}/70 · <b>Reading:</b> ${s.reading}/30</p>
-   <table border="1" cellpadding="4" style="border-collapse:collapse;width:100%"><tr><th>#</th><th>Student answer</th><th>Correct answer</th><th>Notes</th></tr>${rows}</table></div>`;
-  h2p().from(el).set({margin:10,filename:`${s.email}-report.pdf`,pagebreak:{mode:['css','avoid-all']}}).save()};
+ const pdf=async s=>{const [{jsPDF},{default:autoTable},{buildReport}]=await Promise.all([import('jspdf'),import('jspdf-autotable'),import('./pdf.js')]);
+  buildReport(jsPDF,autoTable,d.exam,s).save(`${s.email.replace(/[^\w.@-]+/g,'_')}-report.pdf`)};
+ const del=async s=>{if(!confirm(`Delete the submission of ${s.name||s.email}? This cannot be undone.`))return;
+  await fetch('/api/teacher/submissions/'+encodeURIComponent(s.email),{method:'DELETE',headers:H});load()};
  if(!d) return(<div className="mt-16 rounded-lg border bg-white p-8"><h1 className="mb-4 text-2xl font-semibold">Teacher Dashboard</h1>
   <div className="flex gap-2"><input type="password" value={k} onChange={e=>setK(e.target.value)} placeholder="Teacher key" className="flex-1 rounded border px-3 py-2"/>
   <button onClick={load} className="rounded bg-slate-900 px-4 py-2 text-white">Open dashboard</button></div>{err&&<p className="mt-2 text-red-600">{err}</p>}</div>);
@@ -41,7 +35,8 @@ export default function Teacher(){
    {['Student Name','Student Email','Submission Time','Auto Score (/100)','Grammar Score (/70)','Reading Score (/30)','Actions'].map(h=><th key={h} className="p-2">{h}</th>)}</tr></thead>
    <tbody>{d.submissions.map(s=>(<tr key={s.email} className="border-b"><td className="p-2">{s.name||'—'}</td><td className="p-2">{s.email}</td><td className="p-2">{new Date(s.submittedAt).toLocaleString()}{s.auto&&' (auto-submitted)'}</td>
     <td className="p-2">{s.total}</td><td className="p-2">{s.grammar}</td><td className="p-2">{s.reading}</td>
-    <td className="p-2"><button onClick={()=>pdf(s)} className="flex items-center gap-1 rounded border px-2 py-1"><Download size={14}/>Download Student PDF</button></td></tr>))}
+    <td className="p-2"><div className="flex gap-2"><button onClick={()=>pdf(s)} className="flex items-center gap-1 rounded border px-2 py-1"><Download size={14}/>Download Student PDF</button>
+     <button onClick={()=>del(s)} className="flex items-center gap-1 rounded border border-red-300 px-2 py-1 text-red-700"><Trash2 size={14}/>Delete</button></div></td></tr>))}
     {!d.submissions.length&&<tr><td colSpan="7" className="p-4 text-slate-500">No submissions yet.</td></tr>}</tbody></table></div>)}
 
 function Preview({exam}){let n=0;return(<div className="mb-6 rounded border-2 border-ink bg-white p-5">
