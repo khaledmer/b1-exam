@@ -2,31 +2,30 @@
 
 A timed, multiple-choice exam platform for B1 ESL students. A teacher starts the exam for everyone at once; students answer in their browser, and answers are saved after every click. Scores are calculated on the server, and the teacher downloads a PDF report per student.
 
-**Stack:** React (Vite) + Tailwind CSS + Lucide icons + `html2pdf.js` on the frontend, Node.js + Express on the backend. Data is stored in a JSON file (`.data/db.json`), so no database is needed.
+**Stack:** React (Vite) + Tailwind CSS + Lucide icons + `html2pdf.js` on the frontend, Node.js + Express on the backend. Data is stored in a **PostgreSQL** database.
 
 ---
 
 ## Features
 
 **Students**
-
-- Join with an email address (no password).
+- Join with a full name and email address (no password).
 - Every answer is saved to `localStorage` (`student_exam_state_<email>`). After a reload, a closed browser or a dropped connection, entering the same email restores the answers and the remaining time.
 - A sticky countdown timer is based on the server clock, so every student sees the same time regardless of their device clock.
 - When the timer reaches 00:00, all inputs lock and the answers are submitted automatically. If the connection is down, the submission is retried until the server's deadline passes.
 - Students never see scores, checkmarks or correct answers. They only see a confirmation message.
+- Answers are also saved in the database as students click. If a browser closes or loses connection before the deadline, the server submits the saved answers automatically.
 
 **Teacher dashboard (`/teacher`, protected by a key)**
-
 - Set the duration (default 60 minutes) and press **START EXAM FOR ALL**.
+- Press **STOP EXAM FOR ALL** to end the exam immediately. Every student is locked and their answers are submitted.
 - Live submissions table: email, submission time, total /100, grammar /70, reading /30.
 - **Copy All Student Emails** copies a comma-separated list.
 - **Download Student PDF** creates a report with the exam title and date, the student email and submission time, the score breakdown, and a table of student answer vs correct answer.
 
 **Server rules**
-
 - Correct answers never leave the server, except on the key-protected teacher endpoint.
-- Submissions arriving after `startTime + duration + 30 seconds` are rejected.
+- Submissions arriving more than 30 seconds after the end time (the scheduled end, or the moment the teacher pressed Stop) are rejected. Students with saved answers who did not submit are submitted automatically (marked "auto-submitted" in the table).
 - Each email can submit once. Repeated submissions are ignored.
 
 ---
@@ -45,12 +44,11 @@ b1-exam/
 │       └── index.css       Tailwind import
 ├── server/
 │   ├── index.js            Express routes + serves the built client
-│   └── store.js            JSON-file storage + grading
+│   └── store.js            PostgreSQL access, table setup, grading
 ├── data/exam.json          question bank (answers + points)
 ├── vite.config.js
 ├── package.json
-├── .env                    TEACHER_KEY and PORT (do not commit)
-└── .data/db.json           created at runtime (session + submissions)
+└── .env                    TEACHER_KEY, PORT, DATABASE_URL (do not commit)
 ```
 
 ---
@@ -59,8 +57,38 @@ b1-exam/
 
 - **Node.js 20.6 or newer** (22 LTS recommended). The `.env` file is loaded with Node's built-in `--env-file` flag.
 - npm (included with Node.js).
+- PostgreSQL 14 or newer, local or hosted (see **Database** below).
 
 Check your version with `node -v`.
+
+---
+
+## Database
+
+Everything is stored in **PostgreSQL**: the exam session (status, start time, duration), each student's saved answers while they work (`drafts`), and the final submissions with scores (`submissions`). The tables are created automatically when the server starts, so there is nothing to migrate.
+
+The server reads the connection string from the `DATABASE_URL` environment variable and refuses to start without it. Starting a new exam does not delete the previous one: older submissions stay in the database, and the dashboard shows only the current exam.
+
+### Set up PostgreSQL on your computer
+
+Pick one option.
+
+**A. Docker** (quickest if Docker Desktop is installed):
+
+```bash
+docker run --name b1-exam-db -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=b1exam -p 5432:5432 -d postgres:16
+```
+
+Use `DATABASE_URL=postgres://postgres:postgres@localhost:5432/b1exam`. Next time, start it with `docker start b1-exam-db`.
+
+**B. PostgreSQL installer:**
+1. Download it from [postgresql.org/download/windows](https://www.postgresql.org/download/windows/) and install it. Remember the password you set for the `postgres` user and keep port `5432`.
+2. Open **SQL Shell (psql)** and run `CREATE DATABASE b1exam;`
+3. Use `DATABASE_URL=postgres://postgres:<your-password>@localhost:5432/b1exam`. If the password has special characters, URL-encode them.
+
+**C. A Render database from your computer:** create the database on Render (see below) and use its **External Database URL**. SSL is turned on automatically for `render.com` hosts.
+
+Put the line in your `.env` file (see **Configuration**), then run `npm run dev`. You should see `B1 exam server on 3001` in the terminal.
 
 ---
 
@@ -73,15 +101,14 @@ npm run dev
 
 This starts two processes:
 
-| Process                 | URL                                   |
-| ----------------------- | ------------------------------------- |
+| Process | URL |
+|---|---|
 | React dev server (Vite) | http://localhost:5173 (open this one) |
-| Express API             | http://localhost:3001                 |
+| Express API | http://localhost:3001 |
 
 Vite proxies `/api` to Express, so you only use port 5173. The page reloads when you edit client code, and the server restarts when you edit server code.
 
 **Try it:**
-
 1. Open http://localhost:5173/teacher and enter the key from `.env` (default `change-me`).
 2. Press **START EXAM FOR ALL**.
 3. In another browser window (or a private window), open http://localhost:5173, enter an email and take the exam.
@@ -119,27 +146,29 @@ To let students on the same network join from their own devices:
 
 Set these in the `.env` file locally, or in the Render dashboard when deployed.
 
-| Variable      | Default     | Purpose                                                                |
-| ------------- | ----------- | ---------------------------------------------------------------------- |
+| Variable | Default | Purpose |
+|---|---|---|
 | `TEACHER_KEY` | `change-me` | Password for the teacher dashboard. **Change it before any real use.** |
-| `PORT`        | `3001`      | Port Express listens on. Render sets this itself.                      |
+| `PGSSL` | off | Set to `true` if your hosted database requires SSL (automatic for `render.com` hosts). |
+| `PORT` | `3001` | Port Express listens on. Render sets this itself. |
 
 Example `.env`:
 
 ```
 TEACHER_KEY=pick-a-long-secret
 PORT=3001
+DATABASE_URL=postgres://postgres:postgres@localhost:5432/b1exam
 ```
 
 ---
 
 ## Deploy on Render
 
-Render runs the Express server, which also serves the built React app, so you deploy **one Web Service**.
+You create two things on Render, a **PostgreSQL database** and a **Web Service**, and connect them with one environment variable (`DATABASE_URL`).
 
 ### 1. Put the project on GitHub
 
-Before your first commit, make sure these lines are in `.gitignore` so secrets and build output are not uploaded:
+Make sure `.gitignore` contains these lines so secrets and build output are not uploaded:
 
 ```
 node_modules/
@@ -159,75 +188,47 @@ git remote add origin https://github.com/<your-user>/<your-repo>.git
 git push -u origin main
 ```
 
-### 2. Create the Web Service
+### 2. Create the PostgreSQL database
 
-1. Sign in to [render.com](https://render.com) and click **New → Web Service**.
-2. Connect your GitHub account and select the repository.
-3. Fill in the settings:
+1. In the Render dashboard click **New → PostgreSQL**.
+2. Enter a name (for example `b1-exam-db`), choose a region, and choose a plan.
+3. Click **Create Database** and wait until its status is **Available**.
+4. On the database page, copy the **Internal Database URL**.
 
-| Setting            | Value                                        |
-| ------------------ | -------------------------------------------- |
-| Language / Runtime | `Node`                                       |
-| Branch             | `main`                                       |
-| Build Command      | `npm install --include=dev && npm run build` |
-| Start Command      | `node server/index.js`                       |
-| Instance Type      | see "Keeping the data" below                 |
+### 3. Create the Web Service
 
-Why these commands:
+1. Click **New → Web Service** and select your GitHub repository.
+2. Use these settings:
 
-- `--include=dev` makes sure Vite and Tailwind (dev dependencies) are installed for the build step.
-- The start command calls `node` directly instead of `npm start`, because there is no `.env` file on Render. Settings come from environment variables instead.
+| Setting | Value |
+|---|---|
+| Language / Runtime | `Node` |
+| Region | the **same region** as the database |
+| Build Command | `npm install --include=dev && npm run build` |
+| Start Command | `node server/index.js` |
 
-### 3. Add environment variables
+3. Under **Environment Variables**, add:
 
-In the **Environment** section, add:
+| Key | Value |
+|---|---|
+| `DATABASE_URL` | the **Internal Database URL** you copied in step 2 |
+| `TEACHER_KEY` | your secret teacher password |
+| `NODE_VERSION` | `22` |
 
-| Key            | Value                        |
-| -------------- | ---------------------------- |
-| `TEACHER_KEY`  | your secret teacher password |
-| `NODE_VERSION` | `22`                         |
+4. Click **Create Web Service**. Do not set `PORT`. Render provides it.
 
-Do not set `PORT`. Render provides it automatically.
+That is the whole connection: the server reads `DATABASE_URL`, connects to the database, and creates its tables on the first start.
 
-### 4. Keeping the data (important)
+### 4. Test it
 
-Render's filesystem is **ephemeral**. Anything the app writes, including the running exam and all submissions in `.data/db.json`, is **erased on every redeploy or restart**. Free instances also spin down after a period of inactivity (about 15 minutes at the time of writing) and lose their files when they restart.
+When the service shows **Live**, open `https://<your-service>.onrender.com/teacher`, sign in with your `TEACHER_KEY`, and run a test exam with two email addresses. In the web service **Logs** you should see `B1 exam server on ...` and no database errors.
 
-Choose one of these:
+### Good to know
 
-**Option A: paid instance with a persistent disk (recommended for real exams).**
-Persistent disks are available on paid Render services only.
-
-1. Set the instance type to a paid plan (for example Starter).
-2. Open the service, go to **Disks → Add Disk**.
-3. Name it `exam-data`, size `1 GB`, and set the **Mount Path** to:
-
-```
-/opt/render/project/src/.data
-```
-
-Render redeploys after you save. The database file now survives restarts and redeploys.
-
-**Option B: free instance (fine for testing only).**
-Use it for trials. For a real exam on the free tier:
-
-- Open the teacher dashboard a few minutes before and keep it open. It polls the server every 5 seconds, which keeps the service awake.
-- Never redeploy or restart during the exam.
-- Download all PDFs and copy the emails right after the exam, because the data can disappear afterwards.
-
-### 5. Deploy and test
-
-1. Click **Create Web Service**. The first build takes a few minutes.
-2. When the status shows **Live**, open your URL (`https://<your-service>.onrender.com`).
-3. Open `/teacher`, enter your `TEACHER_KEY`, and run a test exam with two email addresses.
-4. Share the main URL with students.
-
-### Notes for Render
-
-- **Run a single instance.** Do not scale to multiple instances. The JSON file is local to one instance, and a persistent disk can attach to only one.
-- **Auto-deploy.** Every push to `main` redeploys the service. Turn off **Auto-Deploy** in the service settings before an exam day so an accidental push cannot wipe a running session.
-- **HTTPS** is provided automatically.
-- **Updating the question bank** means editing `data/exam.json`, committing, and pushing. Do this before the exam, not during it.
+- **Free database:** a free Render database expires 30 days after creation and has no backups. Create it shortly before the exam, or choose a paid plan to keep the results.
+- **Free web service:** it spins down when idle, and the first request afterwards can take a minute. Open the teacher page a few minutes before the exam. Your data stays in the database.
+- **Auto-deploy:** every push to `main` redeploys the service. Turn off **Auto-Deploy** on exam day.
+- **Question bank changes:** edit `data/exam.json`, commit, and push, before the exam.
 
 ---
 
@@ -238,7 +239,7 @@ Use it for trials. For a real exam on the free tier:
 3. Students who are already on the page see the exam appear automatically within a few seconds. Students joining later get the remaining time, not a fresh 60 minutes.
 4. After the deadline, use **Copy All Student Emails** and **Download Student PDF** for each row, then send the PDFs by email.
 
-Pressing **START EXAM FOR ALL** again restarts the exam. It asks for confirmation, archives the current submissions, and clears the table.
+Press **STOP EXAM FOR ALL** to end the exam early. Students are locked within a few seconds and their answers are submitted. Pressing **START EXAM FOR ALL** again begins a new exam: the table shows only the new exam, and earlier submissions stay in the database.
 
 ---
 
@@ -250,12 +251,7 @@ Questions live in `data/exam.json`. Each question looks like this:
 {
   "id": "q1",
   "text": "A coach isn't __________ a train for long journeys.",
-  "options": [
-    "as comfortable than",
-    "so comfortable like",
-    "as comfortable as",
-    "more comfortable as"
-  ],
+  "options": ["as comfortable than", "so comfortable like", "as comfortable as", "more comfortable as"],
   "correctAnswer": 2,
   "points": 2,
   "explanation": "Optional. Shown in the Notes column of the teacher PDF."
@@ -271,32 +267,39 @@ Questions live in `data/exam.json`. Each question looks like this:
 
 ## API reference
 
-| Method | Endpoint       | Auth                   | Purpose                                                                                 |
-| ------ | -------------- | ---------------------- | --------------------------------------------------------------------------------------- |
-| GET    | `/api/exam`    | none                   | Session state, server time, and the questions (without answers) once the exam is active |
-| POST   | `/api/submit`  | none                   | Body `{ "email": "...", "answers": { "q1": 2, ... } }`. Graded on the server.           |
-| GET    | `/api/teacher` | `x-teacher-key` header | Session, full question bank with answers, all submissions                               |
-| POST   | `/api/teacher` | `x-teacher-key` header | Body `{ "durationMinutes": 60 }`. Starts the exam for all.                              |
+| Method | Endpoint | Auth | Purpose |
+|---|---|---|---|
+| GET | `/api/exam` | none | Session state, server time, and the questions (without answers) once the exam is active |
+| POST | `/api/draft` | none | Body `{ "name": "...", "email": "...", "answers": { ... } }`. Saves in-progress answers. |
+| POST | `/api/submit` | none | Body `{ "name": "...", "email": "...", "answers": { "q1": 2, ... } }`. Graded on the server. |
+| GET | `/api/teacher` | `x-teacher-key` header | Session, full question bank with answers, all submissions |
+| POST | `/api/teacher` | `x-teacher-key` header | Body `{ "durationMinutes": 60 }`. Starts the exam for all. |
+| POST | `/api/teacher/stop` | `x-teacher-key` header | Ends the exam immediately for all. |
 
 ---
 
 ## Troubleshooting
 
-| Problem                                                                          | Fix                                                                                                                             |
-| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `node: bad option: --env-file`                                                   | Your Node.js is older than 20.6. Install Node 22 LTS.                                                                           |
-| `vite: not found` during the Render build                                        | Make sure the build command is `npm install --include=dev && npm run build`.                                                    |
-| Page loads locally but `/teacher` shows a blank page after refresh in production | Run `npm run build` first. Express serves the React app only when the `dist/` folder exists.                                    |
-| "Wrong teacher key"                                                              | The key must match `TEACHER_KEY` in `.env` (local) or in the Render environment settings. Restart the server after changing it. |
-| Students cannot reach the LAN address                                            | Check that everyone is on the same network, use the production build (port 3001), and allow Node.js through the firewall.       |
-| `EADDRINUSE: address already in use`                                             | Another program is using the port. Change `PORT` in `.env`.                                                                     |
-| All submissions disappeared on Render                                            | The instance restarted without a persistent disk. See "Keeping the data".                                                       |
-| A student's answers are gone after the teacher restarted the exam                | Saved answers belong to one exam session. Restarting creates a new session, so old answers are not restored.                    |
+| Problem | Fix |
+|---|---|
+| `node: bad option: --env-file` | Your Node.js is older than 20.6. Install Node 22 LTS. |
+| `vite: not found` during the Render build | Make sure the build command is `npm install --include=dev && npm run build`. |
+| Page loads locally but `/teacher` shows a blank page after refresh in production | Run `npm run build` first. Express serves the React app only when the `dist/` folder exists. |
+| "Wrong teacher key" | The key must match `TEACHER_KEY` in `.env` (local) or in the Render environment settings. Restart the server after changing it. |
+| Students cannot reach the LAN address | Check that everyone is on the same network, use the production build (port 3001), and allow Node.js through the firewall. |
+| `EADDRINUSE: address already in use` | Another program is using the port. Change `PORT` in `.env`. |
+| `DATABASE_URL is not set` | Add it to `.env` (local) or to the web service environment (Render). |
+| `ECONNREFUSED 127.0.0.1:5432` | PostgreSQL is not running. Start the Docker container or the PostgreSQL service. |
+| `password authentication failed` | The user or password in `DATABASE_URL` is wrong. |
+| `SSL/TLS required` or `no pg_hba.conf entry` | The host needs SSL. Set `PGSSL=true`. |
+| `getaddrinfo ENOTFOUND dpg-...` | You used the Internal URL from outside Render, or the web service and database are in different regions. Use the External URL on your computer and the same region on Render. |
+| The Render database stopped working after a month | Free databases expire after 30 days. Upgrade it or create a new one. |
+| A student's answers are gone after the teacher restarted the exam | Saved answers belong to one exam session. Restarting creates a new session, so old answers are not restored. |
 
 ---
 
 ## Known limitations
 
 - Students identify themselves by email only. Anyone can join with any address, so share the link only with your class.
-- The JSON-file database suits one class on one server. For heavier use, replace `load()` and `save()` in `server/store.js` with MongoDB or PostgreSQL.
+- The free Render database expires after 30 days. Export results (PDFs) after each exam, or use a paid plan.
 - The answer key is only as correct as `data/exam.json`. Review the questions and options before the exam.

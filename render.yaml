@@ -1,0 +1,24 @@
+# Render Blueprint: one web service (Express + built React app) and one PostgreSQL database.
+databases:
+  - name: b1-exam-db
+    plan: free          # free databases expire 30 days after creation; use a paid plan to keep data
+    databaseName: b1exam
+    user: b1exam
+
+services:
+  - type: web
+    name: b1-exam
+    runtime: node
+    plan: free
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: node server/index.js
+    healthCheckPath: /api/exam
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: b1-exam-db
+          property: connectionString
+      - key: TEACHER_KEY
+        sync: false     # Render asks you for this value when you create the Blueprint
