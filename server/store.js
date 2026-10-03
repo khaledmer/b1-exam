@@ -5,13 +5,16 @@ export const GRACE=30000;
 pg.types.setTypeParser(20,Number); // bigint (epoch milliseconds) -> JS number
 const url=process.env.DATABASE_URL;
 if(!url){console.error('DATABASE_URL is not set. See README.md, section "Database".');process.exit(1)}
+if(process.env.RENDER&&(!process.env.TEACHER_KEY||process.env.TEACHER_KEY==='change-me')){console.error('Set a private TEACHER_KEY environment variable on Render.');process.exit(1)}
 export const pool=new pg.Pool({connectionString:url,max:10,ssl:process.env.PGSSL==='true'||/\.render\.com/.test(url)?{rejectUnauthorized:false}:undefined});
+pool.on('error',e=>console.error('Database connection error:',e.message)); // idle connection dropped: log, do not crash
 export const endOf=s=>{if(!s.startTime)return 0;const e=s.startTime+s.durationMinutes*60000;return s.status==='STOPPED'?Math.min(s.stoppedAt,e):e};
 export const isTeacher=req=>req.get('x-teacher-key')===(process.env.TEACHER_KEY||'change-me');
 export function clean(a){const o={};if(a&&typeof a==='object')for(const s of EXAM.sections)for(const q of s.questions){const v=a[q.id];if(Number.isInteger(v)&&v>=0&&v<q.options.length)o[q.id]=v}return o}
 export function grade(a){let g=0,r=0;for(const s of EXAM.sections)for(const q of s.questions)if(a[q.id]===q.correctAnswer){s.id==='grammar'?g+=q.points:r+=q.points}
  const f=n=>Math.round(n*10)/10;return {grammar:f(g),reading:f(r),total:f(g+r)}}
 const toS=r=>({status:r.status,startTime:r.start_time,durationMinutes:r.duration_minutes,stoppedAt:r.stopped_at,finalized:r.finalized});
+const due=r=>r&&r.start_time&&!r.finalized&&Date.now()>endOf(toS(r))+GRACE;
 
 export async function init(){
  await pool.query(`
@@ -26,7 +29,6 @@ export async function init(){
 }
 // After the deadline (+grace) every saved draft without a submission is submitted automatically. Safe with several server instances (row lock).
 export async function finalize(){
- const due=r=>r&&r.start_time&&!r.finalized&&Date.now()>endOf(toS(r))+GRACE;
  if(!due((await pool.query('SELECT * FROM exam_session WHERE id=1')).rows[0]))return;
  const c=await pool.connect();
  try{await c.query('BEGIN');
@@ -39,4 +41,4 @@ export async function finalize(){
    await c.query('UPDATE exam_session SET finalized=true WHERE id=1')}
   await c.query('COMMIT')}catch(e){await c.query('ROLLBACK');throw e}finally{c.release()}
 }
-export async function getSession(){await finalize();return toS((await pool.query('SELECT * FROM exam_session WHERE id=1')).rows[0])}
+export async function getSession(){const q=()=>pool.query('SELECT * FROM exam_session WHERE id=1').then(x=>x.rows[0]);let r=await q();if(due(r)){await finalize();r=await q()}return toS(r)}

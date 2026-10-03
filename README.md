@@ -19,6 +19,8 @@ A timed, multiple-choice exam platform for B1 ESL students. A teacher starts the
 **Teacher dashboard (`/teacher`, protected by a key)**
 - Set the duration (default 60 minutes) and press **START EXAM FOR ALL**.
 - Press **STOP EXAM FOR ALL** to end the exam immediately. Every student is locked and their answers are submitted.
+- **Preview exam** shows all questions on the dashboard with the correct answers highlighted. Students never see this view.
+- **Reset test data** deletes all submissions, saved answers and past exams, and returns the platform to its starting state. You must type `RESET` to confirm. Use it after testing, and never during a real exam.
 - Live submissions table: email, submission time, total /100, grammar /70, reading /30.
 - **Copy All Student Emails** copies a comma-separated list.
 - **Download Student PDF** creates a report with the exam title and date, the student email and submission time, the score breakdown, and a table of student answer vs correct answer.
@@ -243,6 +245,22 @@ Press **STOP EXAM FOR ALL** to end the exam early. Students are locked within a 
 
 ---
 
+## Test everything before the real exam
+
+Use a second device (or a private browser window) as the student. Allow about 10 minutes.
+
+1. **Preview.** Open `/teacher`, sign in, and click **Preview exam**. Read all 36 questions and check the highlighted answers.
+2. **Start a short exam.** Set the duration to `1` and click **START EXAM FOR ALL**.
+3. **Join as a student.** On the other device, enter a name and email. Answer a few questions and reload the page. Your answers and the countdown must come back.
+4. **Time-up submission.** Let the minute run out. The student page must show the confirmation message, and the dashboard must list the student with a score.
+5. **Manual stop.** Click START again, join, answer some questions, then click **STOP EXAM FOR ALL**. Within a few seconds the student page must lock and submit.
+6. **Closed browser.** Start again, answer some questions, and close the student's browser tab. About 30 seconds after the end, the student must appear in the table marked "(auto-submitted)".
+7. **Reports.** Download a student PDF and check the name, email, scores and answer table. Click **Copy All Student Emails** and paste it somewhere.
+8. **Clean up.** Click **Reset test data** and type `RESET`. The table must be empty and the status `IDLE`.
+9. **On Render,** check the web service **Logs** for `B1 exam server on ...` and no database errors. Open the teacher page 5 to 10 minutes before the real exam so the free service is awake.
+
+---
+
 ## Editing the question bank
 
 Questions live in `data/exam.json`. Each question looks like this:
@@ -275,6 +293,7 @@ Questions live in `data/exam.json`. Each question looks like this:
 | GET | `/api/teacher` | `x-teacher-key` header | Session, full question bank with answers, all submissions |
 | POST | `/api/teacher` | `x-teacher-key` header | Body `{ "durationMinutes": 60 }`. Starts the exam for all. |
 | POST | `/api/teacher/stop` | `x-teacher-key` header | Ends the exam immediately for all. |
+| POST | `/api/teacher/reset` | `x-teacher-key` header | Deletes all submissions, drafts and sessions. |
 
 ---
 

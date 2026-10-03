@@ -53,10 +53,14 @@ app.post('/api/teacher/stop',teacherOnly,h(async(req,res)=>{
  await pool.query("UPDATE exam_session SET status='STOPPED',stopped_at=$1 WHERE id=1 AND status='ACTIVE' AND start_time+duration_minutes*60000>$1",[Date.now()]);
  res.json(await getSession());
 }));
+app.post('/api/teacher/reset',teacherOnly,h(async(req,res)=>{
+ await pool.query("DELETE FROM drafts; DELETE FROM submissions; UPDATE exam_session SET status='IDLE',start_time=NULL,stopped_at=NULL,finalized=false WHERE id=1");
+ res.json(await getSession());
+}));
 app.use((e,q,s,n)=>{console.error(e);s.status(500).json({error:'server error'})});
 
 const dist=path.join(path.dirname(fileURLToPath(import.meta.url)),'..','dist');
 if(fs.existsSync(dist)){app.use(express.static(dist));app.get('*',(q,s)=>s.sendFile(path.join(dist,'index.html')))}
-await init();
+try{await init()}catch(e){console.error('Cannot connect to the database:',e.message,'\nCheck DATABASE_URL (see README, section Database).');process.exit(1)}
 setInterval(()=>finalize().catch(console.error),5000);
 app.listen(process.env.PORT||3001,()=>console.log('B1 exam server on',process.env.PORT||3001));

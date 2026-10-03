@@ -6,7 +6,7 @@ export default function Home(){
  const [name,setName]=useState(''),[email,setEmail]=useState(''),[joined,setJoined]=useState(false),[data,setData]=useState(null),[exam,setExam]=useState(null),
   [offset,setOffset]=useState(0),[answers,setAnswers]=useState({}),[now,setNow]=useState(Date.now()),[done,setDone]=useState(false),[err,setErr]=useState('');
  const sent=useRef(false),aref=useRef({}),draftT=useRef(null);
- const poll=async()=>{try{const r=await(await fetch('/api/exam',{cache:'no-store'})).json();setOffset(r.serverNow-Date.now());setData(r);if(r.exam)setExam(r.exam)}catch{}};
+ const poll=async()=>{try{const r=await(await fetch('/api/exam',{cache:'no-store'})).json();setOffset(r.serverNow-Date.now());setData(r);if(r.exam)setExam(r.exam);else if(r.session.status==='IDLE')setExam(null)}catch{}};
  useEffect(()=>{if(!joined||done)return;poll();const t=setInterval(poll,3000);return()=>clearInterval(t)},[joined,done]);
  useEffect(()=>{const t=setInterval(()=>setNow(Date.now()+offset),500);return()=>clearInterval(t)},[offset]);
  const st=data?.session?.startTime;
@@ -32,7 +32,7 @@ export default function Home(){
  <section className="grid items-center gap-12 py-6 md:grid-cols-[1.1fr_0.9fr] md:py-14">
   <div>
    <h1 className="font-display text-5xl font-extrabold leading-[1.05] tracking-tight md:text-6xl">B1 Mid-Term<br/>English Assessment</h1>
-   <p className="mt-5 max-w-md text-lg text-slate-600">36 questions across grammar and reading. You have 60 minutes once your teacher starts the exam.</p>
+   <p className="mt-5 max-w-md text-lg text-slate-600">36 questions across grammar and reading. The timer starts when your teacher starts the exam.</p>
    <ul className="mt-8 space-y-3 text-slate-700">
     {[[Save,'Answers save after every click, so a reload never loses your work.'],[Timer,'One shared countdown for the whole class, set by your teacher.'],[Mail,'Your teacher emails your results after the exam.']].map(([I,t])=>(
      <li key={t} className="flex items-start gap-3"><I size={20} className="mt-0.5 shrink-0 text-ultra"/>{t}</li>))}
